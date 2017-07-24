@@ -1,26 +1,42 @@
 package org.fun.prog
 
+//noinspection TypeAnnotation
 object WordWrap extends App {
 
   def wrap(text: String, width: Int): List[String] = {
     wrap(text.split(' ').toList, width, Nil).reverse
   }
 
-  def wrap(words: List[String], width: Int, wrappedLines: List[String]): List[String] = {
-    (words, wrappedLines) match {
-      case (Nil, _) => wrappedLines
+  def wrap(words: List[String], width: Int, accLines: List[String]): List[String] = {
+    (words, accLines) match {
+      case (Nil, _) => accLines
       case (word :: wordsTail, Nil) => wrap(wordsTail, width, word :: Nil)
-      case (word :: wordsTail, line :: lineTail) if fit(line, word, width) => wrap(wordsTail, width, line + " " + word :: lineTail)
-      case (word :: wordsTail, line :: lineTail) if word.length > width =>
-        val wordParts = split(word, width)
-        wrap(wordParts._2 :: wordsTail, width, wordParts._1 :: line :: lineTail)
-      case (word :: wordsTail, line :: lineTail) => wrap(wordsTail, width, word :: line :: lineTail)
+      case (word :: wordsTail, line :: lineTail) => WordContext(word, line, width) match {
+
+        case WordSplits(start, end) => wrap(end :: wordsTail, width, start :: line :: lineTail)
+
+        case WordFitsLine(updatedLine) => wrap(wordsTail, width, updatedLine :: lineTail)
+
+        case _ => wrap(wordsTail, width, word :: line :: lineTail)
+      }
     }
   }
 
-  def fit(line: String, word: String, width: Int): Boolean = line.length + word.length < width
+  object WordSplits {
+    def unapply(v: WordContext): Option[(String, String)] = v match {
+      case _ if v.word.length > v.width => Some((v.word.substring(0, v.width - 1) + "-", v.word.substring(v.width - 1)))
+      case _ => None
+    }
+  }
 
-  def split(word: String, width: Int): (String, String) = (word.substring(0, width - 1) + "-", word.substring(width - 1))
+  object WordFitsLine {
+    def unapply(v: WordContext): Option[String] = v match {
+      case _ if v.word.length + v.line.length <= v.width => Some(v.line + " " + v.word)
+      case _ => None
+    }
+  }
+
+  case class WordContext(word: String, line: String, width: Int) {}
 
   def format(text: String, width: Int): Unit = {
     println(text)
