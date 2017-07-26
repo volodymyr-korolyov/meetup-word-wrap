@@ -11,32 +11,30 @@ object WordWrap extends App {
     (words, accLines) match {
       case (Nil, _) => accLines
       case (word :: wordsTail, Nil) => wrap(wordsTail, width, word :: Nil)
-      case (word :: wordsTail, line :: lineTail) => WordContext(word, line, width) match {
+      case (word :: wordsTail, line :: lineTail) => (word, line, width) match {
 
-        case WordSplits(start, end) => wrap(end :: wordsTail, width, start :: line :: lineTail)
+        case LongWordSplits(wordEnd, newLine) => wrap(wordEnd :: wordsTail, width, newLine :: line :: lineTail)
 
-        case WordFitsLine(updatedLine) => wrap(wordsTail, width, updatedLine :: lineTail)
+        case WordFitsLine(_, updatedLine) => wrap(wordsTail, width, updatedLine :: lineTail)
 
         case _ => wrap(wordsTail, width, word :: line :: lineTail)
       }
     }
   }
 
-  object WordSplits {
-    def unapply(v: WordContext): Option[(String, String)] = v match {
-      case _ if v.word.length > v.width => Some((v.word.substring(0, v.width - 1) + "-", v.word.substring(v.width - 1)))
-      case _ => None
-    }
-  }
+  val LongWordSplits = Extractor({
+    case (word, line, width) if word.length > width => Some((word.substring(width - 1), word.substring(0, width - 1) + "-"))
+    case _ => None
+  })
 
-  object WordFitsLine {
-    def unapply(v: WordContext): Option[String] = v match {
-      case _ if v.word.length + v.line.length <= v.width => Some(v.line + " " + v.word)
-      case _ => None
-    }
-  }
+  val WordFitsLine = Extractor({
+    case (word, line, width)  if word.length + line.length <= width => Some("", line + " " + word)
+    case _ => None
+  })
 
-  case class WordContext(word: String, line: String, width: Int) {}
+  case class Extractor(f: ((String, String, Int)) => Option[(String, String)]) {
+    def unapply(v: (String, String, Int)):Option[(String, String)] = f(v)
+  }
 
   def format(text: String, width: Int): Unit = {
     println(text)
